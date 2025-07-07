@@ -9,6 +9,7 @@
 #include "dht11.h"
 #include "lsens.h"
 #include "hc05.h"
+#include "usart3.h"			 	 
 // 定义按钮结构体
 typedef struct {
     u16 x_start;
@@ -218,17 +219,15 @@ void HC05_Sta_Show(void)
 //    printf("光照强度：%d\r\n",lsens_value);
 //}
 
-
-int main()
-{
-		u8 i=0;
+int main() {
+    u8 i = 0;
     u8 j;  // 用于循环的变量
     u8 key;
-		u8 t=0;
-		u8 sendmask=0;
-		u8 sendcnt=0;
-		u8 sendbuf[20];	  
-		u8 reclen=0; 
+    u8 t = 0;
+    u8 sendmask = 0;
+    u8 sendcnt = 0;
+    u8 sendbuf[20];	  
+    u8 reclen = 0; 
     
     SysTick_Init(72);
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
@@ -249,11 +248,6 @@ int main()
     init_buttons();
     draw_buttons();
     
-
-	
-	
-	
-	
     // 简化RST显示
     FRONT_COLOR = RED;
     LCD_ShowString(tftlcd_data.width - 30, 0, 30, 16, 16, "RST");
@@ -271,8 +265,7 @@ int main()
     LCD_ShowString(10,260,tftlcd_data.width,tftlcd_data.height,16,"Lsen:     ");
     FRONT_COLOR=RED;
 		
-		while(DHT11_Init())    //检测DS18B20是否纯在
-    {
+    while(DHT11_Init()) {   //检测DS18B20是否纯在
         LCD_ShowString(130,50,tftlcd_data.width,tftlcd_data.height,16,"Error   ");
         printf("DHT11 Check Error!\r\n");
         delay_ms(500);        
@@ -280,24 +273,40 @@ int main()
     LCD_ShowString(130,50,tftlcd_data.width,tftlcd_data.height,16,"Success");
     printf("DHT11 Check OK!\r\n");
 
-		
-	//=======================
-		//初始化HC05模块  
-		while(HC05_Init()) 		
-	{
-		printf("HC05 Error!\r\n");
-		LCD_ShowString(10,90,200,16,16,"HC05 Error!    "); 
-		delay_ms(500);
-		LCD_ShowString(10,90,200,16,16,"Please Check!!!"); 
-		delay_ms(100);
-	}
-	printf("HC05 OK!\r\n");
-	//=======================
-	
-    while(1)
-    {
+    //=======================
+    //初始化HC05模块  
+    while(HC05_Init()) {
+        printf("HC05 Error!\r\n");
+        LCD_ShowString(10,90,200,16,16,"HC05 Error!    "); 
+        delay_ms(500);
+        LCD_ShowString(10,90,200,16,16,"Please Check!!!"); 
+        delay_ms(100);
+    }
+    printf("HC05 OK!\r\n");
+    //=======================
+    FRONT_COLOR=BLUE;
+    HC05_Role_Show();
+    delay_ms(100);
+    USART3_RX_STA=0;
+    
+    while(1) {
         key = KEY_Scan(0);
-        if(key == KEY_UP_PRESS) {
+        if(key == KEY_UP_PRESS) { // 切换模块主从设置
+            key = HC05_Get_Role();
+            if(key != 0XFF) {
+                key = !key;  					//状态取反	   
+                if(key == 0) HC05_Set_Cmd("AT+ROLE=0");
+                else HC05_Set_Cmd("AT+ROLE=1");
+                HC05_Role_Show();
+                HC05_Set_Cmd("AT+RESET");	//复位HC05模块
+                delay_ms(200);
+            }
+        }
+        else if(key == KEY1_PRESS) { // 发送/停止发送
+            sendmask = !sendmask;				//发送/停止发送  	 
+            if(sendmask == 0) LCD_Fill(10+40,160,240,160+16,WHITE); //清除显示
+        }
+        else if(key == KEY_UP_PRESS) { // 触摸屏校准
             TP_Adjust();
             LCD_Clear(WHITE);
             draw_buttons();
@@ -336,12 +345,44 @@ int main()
                 }
             }
         }
-				i++;
-        if(i%20==0)
-        {
-         
-            data_pros();       //读取一次DHT11数据最少要大于100ms
-						            // ===== 新增的自动控制逻辑 =====
+        
+        if(t == 50) { // 定时发送蓝牙数据
+            if(sendmask) { // 定时发送
+                sprintf((char*)sendbuf,"PREHICN HC05 %d\r\n",sendcnt);
+                LCD_ShowString(10+40,160,200,16,16,sendbuf); //显示发送数据
+                printf("%s\r\n",sendbuf);
+                u3_printf("PREHICN HC05 %d\r\n",sendcnt); //发送到蓝牙模块
+                sendcnt++;
+                if(sendcnt > 99) sendcnt = 0;
+            }
+            HC05_Sta_Show();  	  
+            t = 0;
+        }
+        
+        if(USART3_RX_STA & 0X8000) { // 接收到一次数据了
+            LCD_Fill(10,170,240,320,BLUE); // 清除显示区域（避免覆盖温湿度信息）
+            reclen = USART3_RX_STA & 0X7FFF; // 得到数据长度
+            USART3_RX_BUF[reclen] = '\0'; // 加入结束符
+            printf("reclen=%d\r\n",reclen);
+            printf("USART3_RX_BUF=%s\r\n",USART3_RX_BUF);
+            
+            if(reclen == 10 || reclen == 11) { // 控制D2检测
+                if(strcmp((const char*)USART3_RX_BUF,"+LED2 ON\r\n") == 0) LED2 = 0; // 打开LED2
+                if(strcmp((const char*)USART3_RX_BUF,"+LED2 OFF\r\n") == 0) LED2 = 1; // 关闭LED2
+								if(strcmp((const char*)USART3_RX_BUF,"+LED1 ON\r\n") == 0) LED1 = 0; // 打开LED1
+                if(strcmp((const char*)USART3_RX_BUF,"+LED1 OFF\r\n") == 0) LED1 = 1; // 关闭LED1
+								if(strcmp((const char*)USART3_RX_BUF,"+BEEP ON\r\n") == 0) BEEP = 1; // 打开BEEP
+                if(strcmp((const char*)USART3_RX_BUF,"+BEEP OFF\r\n") == 0) BEEP = 0; // 关闭beep
+            }
+            
+            LCD_ShowString(10,270,209,50,16,USART3_RX_BUF); // 显示接收到的数据（位置调整）
+            USART3_RX_STA = 0;	 
+        }
+        
+        i++;
+        if(i % 20 == 0) {
+            data_pros(); // 读取一次DHT11数据
+            // ===== 自动控制逻辑 =====
             // 光照控制LED
             if(g_lsens < 10) {
                 LED1 = 0;  // 低电平点亮
@@ -371,6 +412,7 @@ int main()
             }
         }
         
+        t++;
         delay_ms(10);
     }
 }
