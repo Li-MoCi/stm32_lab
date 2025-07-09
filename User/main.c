@@ -9,46 +9,42 @@
 #include "dht11.h"
 #include "lsens.h"
 #include "hc05.h"
-#include "usart3.h"
+#include "usart3.h"			 	 
 #include "ws2812.h"
+#include "pwm.h"
 extern const u8 g_rgb_num_buf[][5];
 
-void RGB_ShowTemperature(u8 temp, u32 color)
+void RGB_ShowTemperature(u8 temp, u32 color, u8 color_n)
 {
     u8 digits[3];
     int j;
     digits[0] = temp / 10;
     digits[1] = temp % 10;
-    digits[2] = 16; // ï¿½ï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½Ï²ï¿½ï¿½Ö·ï¿½ï¿½ï¿½g_rgb_num_bufï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-
-    for (j = 0; j < 3; j++)
-    {
+    digits[2] = 16; // ¡°¡ãC¡±ºÏ²¢×Ö·ûÔÚg_rgb_num_bufÖÐË÷Òý
+    
         RGB_LED_Clear();
-        RGB_ShowCharNum(digits[j], color);
-        delay_ms(1000); // Ã¿ï¿½ï¿½ï¿½Ö·ï¿½Í£ï¿½ï¿½1ï¿½ï¿½
-    }
+        RGB_ShowCharNum(digits[color_n], color);
 }
-// ï¿½ï¿½ï¿½å°´Å¥ï¿½á¹¹ï¿½ï¿½
-typedef struct
-{
+// ¶¨Òå°´Å¥½á¹¹Ìå
+typedef struct {
     u16 x_start;
     u16 y_start;
     u16 width;
     u16 height;
-    u8 device_num; // ï¿½ï¿½ï¿½Æµï¿½ï¿½è±¸ï¿½ï¿½Å£ï¿½1=LED1, 2=LED2, 3=BEEP
-    u8 state;      // ï¿½è±¸ï¿½ï¿½Ç°×´Ì¬ï¿½ï¿½0=ï¿½Ø£ï¿½1=ï¿½ï¿½
+    u8 device_num;     // ¿ØÖÆµÄÉè±¸±àºÅ£º1=LED1, 2=LED2, 3=BEEP
+    u8 state;          // Éè±¸µ±Ç°×´Ì¬£º0=¹Ø£¬1=¿ª
 } Button;
 
-Button buttons[3]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ°ï¿½Å¥ï¿½ï¿½LED1ï¿½ï¿½LED2ï¿½ï¿½BEEP
+Button buttons[3];  // Èý¸ö¿ØÖÆ°´Å¥£ºLED1¡¢LED2ºÍBEEP
 
-// ï¿½ò»¯¿ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
-void kai_display()
+// ¼ò»¯¿ª»úÏÔÊ¾
+void kai_display()  
 {
     FRONT_COLOR = BLACK;
     LCD_ShowString(10, 10, tftlcd_data.width, tftlcd_data.height, 16, "Device Control");
 }
 
-// ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½
+// ³õÊ¼»¯°´Å¥²¼¾Ö
 void init_buttons()
 {
     u16 btn_width = 80;
@@ -56,230 +52,222 @@ void init_buttons()
     u16 spacing = 40;
     u16 start_x = (tftlcd_data.width - (3 * btn_width + 2 * spacing)) / 2;
     u16 start_y = 80;
-
-    // LED1ï¿½ï¿½Å¥
+    
+    // LED1°´Å¥
     buttons[0].x_start = start_x;
     buttons[0].y_start = start_y;
     buttons[0].width = btn_width;
     buttons[0].height = btn_height;
-    buttons[0].device_num = 1; // ï¿½ï¿½ï¿½ï¿½LED1
+    buttons[0].device_num = 1;  // ¿ØÖÆLED1
     buttons[0].state = 0;
-
-    // LED2ï¿½ï¿½Å¥
+    
+    // LED2°´Å¥
     buttons[1].x_start = start_x + btn_width + spacing;
     buttons[1].y_start = start_y;
     buttons[1].width = btn_width;
     buttons[1].height = btn_height;
-    buttons[1].device_num = 2; // ï¿½ï¿½ï¿½ï¿½LED2
+    buttons[1].device_num = 2;  // ¿ØÖÆLED2
     buttons[1].state = 0;
-
-    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥ - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    
+    // ·äÃùÆ÷°´Å¥ - ÐÞÕý×ø±ê¼ÆËã
     buttons[2].x_start = start_x + 2 * (btn_width + spacing);
-    buttons[2].y_start = start_y; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½
+    buttons[2].y_start = start_y;  // ±£³ÖÔÚÍ¬Ò»ÐÐ
     buttons[2].width = btn_width;
     buttons[2].height = btn_height;
-    buttons[2].device_num = 3; // ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½ï¿½ï¿½
+    buttons[2].device_num = 3;  // ¿ØÖÆ·äÃùÆ÷
     buttons[2].state = 0;
 }
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð°ï¿½Å¥
+// »æÖÆËùÓÐ°´Å¥
 void draw_buttons()
 {
     u8 i;
     char text[10];
-
-    for (i = 0; i < 3; i++)
-    {
-        // ï¿½ï¿½ï¿½Æ°ï¿½Å¥ï¿½ï¿½ï¿½ï¿½ - Ê¹ï¿½Ãºï¿½ï¿½ï¿½×´Ì¬Ö¸Ê¾
+    
+    for(i = 0; i < 3; i++) {
+        // »æÖÆ°´Å¥±³¾° - Ê¹ÓÃºìÂÌ×´Ì¬Ö¸Ê¾
         u16 bg_color = buttons[i].state ? GREEN : RED;
-        LCD_Fill(buttons[i].x_start,
-                 buttons[i].y_start,
-                 buttons[i].x_start + buttons[i].width,
-                 buttons[i].y_start + buttons[i].height,
-                 bg_color);
-
-        // ï¿½ï¿½ï¿½Æ°ï¿½Å¥ï¿½ß¿ï¿½
-        LCD_DrawRectangle(buttons[i].x_start,
-                          buttons[i].y_start,
-                          buttons[i].x_start + buttons[i].width,
-                          buttons[i].y_start + buttons[i].height);
-
-        // ï¿½ï¿½ï¿½Æ°ï¿½Å¥ï¿½ï¿½ï¿½ï¿½
+        LCD_Fill(buttons[i].x_start, 
+                buttons[i].y_start,
+                buttons[i].x_start + buttons[i].width,
+                buttons[i].y_start + buttons[i].height,
+                bg_color);
+        
+        // »æÖÆ°´Å¥±ß¿ò
+        LCD_DrawRectangle(buttons[i].x_start, 
+                        buttons[i].y_start,
+                        buttons[i].x_start + buttons[i].width,
+                        buttons[i].y_start + buttons[i].height);
+        
+        // »æÖÆ°´Å¥ÎÄ×Ö
         FRONT_COLOR = BLACK;
-        if (buttons[i].device_num == 1)
-        {
+        if(buttons[i].device_num == 1) {
             sprintf(text, "LED1");
-        }
-        else if (buttons[i].device_num == 2)
-        {
+        } else if(buttons[i].device_num == 2) {
             sprintf(text, "LED2");
-        }
-        else if (buttons[i].device_num == 3)
-        {
+        } else if(buttons[i].device_num == 3) {
             sprintf(text, "BEEP");
         }
-        LCD_ShowString(buttons[i].x_start + 20,
-                       buttons[i].y_start + 15,
-                       buttons[i].width,
-                       buttons[i].height,
-                       16,
-                       text);
+        LCD_ShowString(buttons[i].x_start + 20, 
+                      buttons[i].y_start + 15,
+                      buttons[i].width, 
+                      buttons[i].height,
+                      16, 
+                      text);
     }
 }
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½è±¸×´Ì¬ï¿½ï¿½ï¿½Ø»æ°´Å¥
+// ¸üÐÂÉè±¸×´Ì¬²¢ÖØ»æ°´Å¥
 void toggle_device(u8 btn_index)
 {
-    if (btn_index >= 3)
-        return;
-
-    // ï¿½Ð»ï¿½ï¿½è±¸×´Ì¬
+    if(btn_index >= 3) return;
+    
+    // ÇÐ»»Éè±¸×´Ì¬
     buttons[btn_index].state = !buttons[btn_index].state;
-
-    // ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½è±¸
-    if (buttons[btn_index].device_num == 1)
-    {                                            // LED1
-        LED1 = buttons[btn_index].state ? 0 : 1; // ×´Ì¬Îª1Ê±ï¿½ï¿½ï¿½ï¿½
-    }
-    else if (buttons[btn_index].device_num == 2)
-    {                                            // LED2
-        LED2 = buttons[btn_index].state ? 0 : 1; // ×´Ì¬Îª1Ê±ï¿½ï¿½ï¿½ï¿½
-    }
-    else if (buttons[btn_index].device_num == 3)
-    { // BEEP
-        if (buttons[btn_index].state)
-        {
-            GPIO_SetBits(BEEP_PORT, BEEP_PIN); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-        }
-        else
-        {
-            GPIO_ResetBits(BEEP_PORT, BEEP_PIN); // ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½
+    
+    // ¿ØÖÆÊµ¼ÊÉè±¸
+    if(buttons[btn_index].device_num == 1) {       // LED1
+        LED1 = buttons[btn_index].state ? 0 : 1;   // ×´Ì¬Îª1Ê±ÁÁµÆ
+    } 
+    else if(buttons[btn_index].device_num == 2) {  // LED2
+        LED2 = buttons[btn_index].state ? 0 : 1;   // ×´Ì¬Îª1Ê±ÁÁµÆ
+    } 
+    else if(buttons[btn_index].device_num == 3) {  // BEEP
+        if(buttons[btn_index].state) {
+            GPIO_SetBits(BEEP_PORT, BEEP_PIN);    // ¿ªÆô·äÃùÆ÷
+        } else {
+            GPIO_ResetBits(BEEP_PORT, BEEP_PIN);  // ¹Ø±Õ·äÃùÆ÷
         }
     }
-
-    // ï¿½Ø»æ°´Å¥
+    
+    // ÖØ»æ°´Å¥
     draw_buttons();
 }
 //=========================================================================================
-//=======================ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½=================================================
+//=======================ÐÂÔö´«¸ÐÆ÷ÏÔÊ¾²¿·Ö=================================================
 //=========================================================================================
-// ï¿½ï¿½ï¿½ï¿½È«ï¿½Ö±ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+// ¶¨ÒåÈ«¾Ö±äÁ¿´æ´¢´«¸ÐÆ÷Öµ
 u8 g_temp, g_humi, g_lsens;
 
-// ï¿½Þ¸Äºï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-void data_pros()
+// ÐÞ¸ÄºóµÄÊý¾Ý´¦Àíº¯Êý
+void data_pros()    
 {
-    u8 temp_buf[3], humi_buf[3];
-    u8 lsens_buf[3];
-    DHT11_Read_Data(&g_temp, &g_humi); // ï¿½ï¿½ï¿½æµ½È«ï¿½Ö±ï¿½ï¿½ï¿½
-
-    g_lsens = Lsens_Get_Val(); // ï¿½ï¿½ï¿½æµ½È«ï¿½Ö±ï¿½ï¿½ï¿½
-
-    // ï¿½Â¶ï¿½ï¿½ï¿½Ê¾
-    temp_buf[0] = g_temp / 10 + 0x30;
-    temp_buf[1] = g_temp % 10 + 0x30;
-    temp_buf[2] = '\0';
-    LCD_ShowString(55, 200, tftlcd_data.width, tftlcd_data.height, 16, temp_buf);
-
-    // Êªï¿½ï¿½ï¿½ï¿½Ê¾
-    humi_buf[0] = g_humi / 10 + 0x30;
-    humi_buf[1] = g_humi % 10 + 0x30;
-    humi_buf[2] = '\0';
-    LCD_ShowString(55, 230, tftlcd_data.width, tftlcd_data.height, 16, humi_buf);
-
-    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
-
-    sprintf((char *)lsens_buf, "%d", g_lsens);
-    LCD_ShowString(55, 260, tftlcd_data.width, tftlcd_data.height, 16, lsens_buf);
-
-    printf("ï¿½Â¶ï¿½=%dï¿½ï¿½C  Êªï¿½ï¿½=%d%%RH  ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½È£ï¿½%d\r\n", g_temp, g_humi, g_lsens);
+		u8 temp_buf[3],humi_buf[3];
+		u8 lsens_buf[3];
+    DHT11_Read_Data(&g_temp, &g_humi);  // ±£´æµ½È«¾Ö±äÁ¿
+    
+    g_lsens = Lsens_Get_Val();  // ±£´æµ½È«¾Ö±äÁ¿
+    
+    // ÎÂ¶ÈÏÔÊ¾
+    temp_buf[0]=g_temp/10+0x30;    
+    temp_buf[1]=g_temp%10+0x30;
+    temp_buf[2]='\0';
+    LCD_ShowString(55,200,tftlcd_data.width,tftlcd_data.height,16,temp_buf);
+    
+    // Êª¶ÈÏÔÊ¾    
+    humi_buf[0]=g_humi/10+0x30;    
+    humi_buf[1]=g_humi%10+0x30;
+    humi_buf[2]='\0';
+    LCD_ShowString(55,230,tftlcd_data.width,tftlcd_data.height,16,humi_buf);
+    
+    // ¹âÕÕÏÔÊ¾
+    
+    sprintf((char*)lsens_buf, "%d", g_lsens); 
+    LCD_ShowString(55,260,tftlcd_data.width,tftlcd_data.height,16,lsens_buf);
+    
+    printf("ÎÂ¶È=%d¡ãC  Êª¶È=%d%%RH  ¹âÕÕÇ¿¶È£º%d\r\n", g_temp, g_humi, g_lsens);
 }
 
 //=========================================================================================
-//=======================ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½===============================================
+//=======================ÐÂÔöÀ¶ÑÀ¿ØÖÆÏÔÊ¾²¿·Ö===============================================
 //=========================================================================================
-// ï¿½ï¿½Ê¾HC05Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+//ÏÔÊ¾HC05Ä£¿éµÄÖ÷´Ó×´Ì¬
 void HC05_Role_Show(void)
 {
-    if (HC05_Get_Role() == 1)
-    {
-        LCD_ShowString(10, 140, 200, 16, 16, "ROLE:Master"); // ï¿½ï¿½ï¿½ï¿½
-    }
-    else
-    {
-        LCD_ShowString(10, 140, 200, 16, 16, "ROLE:Slave "); // ï¿½Ó»ï¿½
-    }
+	if(HC05_Get_Role()==1)
+	{
+		LCD_ShowString(10,140,200,16,16,"ROLE:Master");	//Ö÷»ú
+	}
+	else 
+	{
+		LCD_ShowString(10,140,200,16,16,"ROLE:Slave ");	//´Ó»ú
+	}
 }
 
-// ï¿½ï¿½Ê¾HC05Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+//ÏÔÊ¾HC05Ä£¿éµÄÁ¬½Ó×´Ì¬
 void HC05_Sta_Show(void)
-{
-    if (HC05_LED)
-    {
-        LCD_ShowString(110, 140, 120, 16, 16, "STA:Connected "); // ï¿½ï¿½ï¿½Ó³É¹ï¿½
-    }
-    else
-    {
-        LCD_ShowString(110, 140, 120, 16, 16, "STA:Disconnect"); // Î´ï¿½ï¿½ï¿½ï¿½
-    }
+{												 
+	if(HC05_LED)
+	{
+		LCD_ShowString(110,140,120,16,16,"STA:Connected ");	//Á¬½Ó³É¹¦
+	}
+	else 
+	{
+		LCD_ShowString(110,140,120,16,16,"STA:Disconnect");	 			//Î´Á¬½Ó
+	}				 
 }
 
-// void data_pros()    //ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//void data_pros()    //Êý¾Ý´¦Àíº¯Êý
 //{
-//     u8 temp;
-//     u8 humi;
-//     u8 temp_buf[3],humi_buf[3];
+//    u8 temp;          
+//    u8 humi;
+//    u8 temp_buf[3],humi_buf[3];
 //	  u8 lsens_value=0;
-//     u8 lsens_buf[3];
-//     DHT11_Read_Data(&temp,&humi);
-//     temp_buf[0]=temp/10+0x30;
-//     temp_buf[1]=temp%10+0x30;
-//     temp_buf[2]='\0';
-//     LCD_ShowString(55,200,tftlcd_data.width,tftlcd_data.height,16,temp_buf);
-//
-//     humi_buf[0]=humi/10+0x30;
-//     humi_buf[1]=humi%10+0x30;
-//     humi_buf[2]='\0';
-//     LCD_ShowString(55,230,tftlcd_data.width,tftlcd_data.height,16,humi_buf);
-//     printf("ï¿½Â¶ï¿½=%dï¿½ï¿½C  Êªï¿½ï¿½=%d%%RH\r\n",temp,humi);
-//
-//
+//    u8 lsens_buf[3];
+//    DHT11_Read_Data(&temp,&humi);
+//    temp_buf[0]=temp/10+0x30;    
+//    temp_buf[1]=temp%10+0x30;
+//    temp_buf[2]='\0';
+//    LCD_ShowString(55,200,tftlcd_data.width,tftlcd_data.height,16,temp_buf);
+//        
+//    humi_buf[0]=humi/10+0x30;    
+//    humi_buf[1]=humi%10+0x30;
+//    humi_buf[2]='\0';
+//    LCD_ShowString(55,230,tftlcd_data.width,tftlcd_data.height,16,humi_buf);
+//    printf("ÎÂ¶È=%d¡ãC  Êª¶È=%d%%RH\r\n",temp,humi);
+//    
+//    
 
 //    lsens_value=Lsens_Get_Val();
-//    sprintf((char*)lsens_buf, "%d", lsens_value);
+//    sprintf((char*)lsens_buf, "%d", lsens_value); 
 //    LCD_ShowString(55,260,tftlcd_data.width,tftlcd_data.height,16,lsens_buf);
-//    printf("ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½È£ï¿½%d\r\n",lsens_value);
+//    printf("¹âÕÕÇ¿¶È£º%d\r\n",lsens_value);
 //}
 
-int main()
-{
+int main() {
+	
+	typedef enum {
+        TEMP_DISPLAY_OFF,     // ¹Ø±Õ×´Ì¬
+        TEMP_DISPLAY_TENS,    // Ê®Î»Êý
+        TEMP_DISPLAY_UNITS,   // ¸öÎ»Êý
+        TEMP_DISPLAY_SYMBOL   // ¡æ·ûºÅ
+    } TempDisplayState;
+    int pwm_value = 0;
+    int new_pwm = 0;  // ´æ´¢×Ô¶¯¼ÆËãµÄ·çÉÈPWMÖµ
+    u8 auto_fan_mode = 0; // 0=ÊÖ¶¯Ä£Ê½, 1=×Ô¶¯Ä£Ê½
     u8 temp = 0, humi = 0;
     u8 color_index = 0;
+    u8 color_n = 0;
     u32 color_list[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW};
     u8 i = 0;
-    u8 j; // ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½
+    u8 j;  // ÓÃÓÚÑ­»·µÄ±äÁ¿
     u8 key;
     u8 t = 0;
     u8 sendmask = 0;
     u8 sendcnt = 0;
-    u8 sendbuf[20];
-    u8 reclen = 0;
+    u8 sendbuf[20];	  
+    u8 reclen = 0; 
+    char fan_buf[10];
 
-    // ===== ï¿½Â¶ï¿½ï¿½ï¿½Ê¾×´Ì¬ï¿½ï¿½ï¿½Æ±ï¿½ï¿½ï¿½ =====
-    typedef enum
-    {
-        TEMP_DISPLAY_OFF,
-        TEMP_DISPLAY_TENS,  // Ê®Î»ï¿½ï¿½
-        TEMP_DISPLAY_UNITS, // ï¿½ï¿½Î»ï¿½ï¿½
-        TEMP_DISPLAY_SYMBOL // ï¿½ï¿½ï¿½ï¿½ï¿½
-    } TempDisplayState;
 
+    
     TempDisplayState tempDisplayState = TEMP_DISPLAY_OFF;
     u8 tempToDisplay = 0;
     u32 tempDisplayColor = 0;
     u32 tempDisplayStartTime = 0;
-    // ===== ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ =====
-
+		u32 tempUpdateTime = 0;  // ÎÂ¶È¸üÐÂÊ±¼ä´Á
+    // ===== ÐÂÔö½áÊø =====
+    
     SysTick_Init(72);
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     LED_Init();
@@ -289,136 +277,123 @@ int main()
     TP_Init();
     BEEP_Init();
     Lsens_Init();
-    TFTLCD_Init();
-    // ï¿½ï¿½ï¿½Ì¿ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ê±ï¿½ï¿½
+    TFTLCD_Init();           
+    // Ëõ¶Ì¿ª»úÏÔÊ¾Ê±¼ä
     kai_display();
     delay_ms(500);
     LCD_Clear(WHITE);
-    RGB_LED_Init(); // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-    // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½
+    RGB_LED_Init();  // ³õÊ¼»¯µÆÕó
+    // ³õÊ¼»¯°´Å¥²¼¾Ö
     init_buttons();
     draw_buttons();
-
-    // ï¿½ï¿½RSTï¿½ï¿½Ê¾
+    TIM3_CH2_PWM_Init(500,72-1); //ÆµÂÊÊÇ2Kh
+    TIM_SetCompare2(TIM3,400);    
+    // ¼ò»¯RSTÏÔÊ¾
     FRONT_COLOR = RED;
     LCD_ShowString(tftlcd_data.width - 30, 0, 30, 16, 16, "RST");
-
-    // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½è±¸×´Ì¬
+    
+    // ³õÊ¼»¯Éè±¸×´Ì¬
     LED1 = 1;
     LED2 = 1;
-    GPIO_ResetBits(BEEP_PORT, BEEP_PIN); // ï¿½ï¿½Ê¼ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½
-
-    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ä»ï¿½ß´ï¿½
+    GPIO_ResetBits(BEEP_PORT, BEEP_PIN); // ³õÊ¼¹Ø±Õ·äÃùÆ÷
+    
+    // µ÷ÊÔÐÅÏ¢£ºÏÔÊ¾ÆÁÄ»³ß´ç
     printf("Screen Width: %d, Height: %d\n", tftlcd_data.width, tftlcd_data.height);
-
-    LCD_ShowString(10, 200, tftlcd_data.width, tftlcd_data.height, 16, "Temp:   C");
-    LCD_ShowString(10, 230, tftlcd_data.width, tftlcd_data.height, 16, "Humi:   %RH");
-    LCD_ShowString(10, 260, tftlcd_data.width, tftlcd_data.height, 16, "Lsen:     ");
-    FRONT_COLOR = RED;
-
-    while (DHT11_Init())
-    { // ï¿½ï¿½ï¿½DS18B20ï¿½Ç·ï¿½ï¿½ï¿½
-        LCD_ShowString(130, 50, tftlcd_data.width, tftlcd_data.height, 16, "Error   ");
+     // Ìí¼Ó·çÉÈPWMÏÔÊ¾±êÇ©
+    LCD_ShowString(10, 290, tftlcd_data.width, tftlcd_data.height, 16, "Fan:     ");
+    
+    // ³õÊ¼»¯ÏÔÊ¾PWMÖµ
+    sprintf(fan_buf, "%d", pwm_value);
+    LCD_ShowString(55, 290, tftlcd_data.width, tftlcd_data.height, 16, fan_buf);
+    LCD_ShowString(10,200,tftlcd_data.width,tftlcd_data.height,16,"Temp:   C");
+    LCD_ShowString(10,230,tftlcd_data.width,tftlcd_data.height,16,"Humi:   %RH");
+    LCD_ShowString(10,260,tftlcd_data.width,tftlcd_data.height,16,"Lsen:     ");
+    FRONT_COLOR=RED;
+		
+    while(DHT11_Init()) {   //¼ì²âDS18B20ÊÇ·ñ´¿ÔÚ
+        LCD_ShowString(130,50,tftlcd_data.width,tftlcd_data.height,16,"Error   ");
         printf("DHT11 Check Error!\r\n");
-        delay_ms(500);
+        delay_ms(500);        
     }
-    LCD_ShowString(130, 50, tftlcd_data.width, tftlcd_data.height, 16, "Success");
+    LCD_ShowString(130,50,tftlcd_data.width,tftlcd_data.height,16,"Success");
     printf("DHT11 Check OK!\r\n");
 
     //=======================
-    // ï¿½ï¿½Ê¼ï¿½ï¿½HC05Ä£ï¿½ï¿½
-    while (HC05_Init())
-    {
+    //³õÊ¼»¯HC05Ä£¿é  
+    while(HC05_Init()) {
         printf("HC05 Error!\r\n");
-        LCD_ShowString(10, 90, 200, 16, 16, "HC05 Error!    ");
+        LCD_ShowString(10,90,200,16,16,"HC05 Error!    "); 
         delay_ms(500);
-        LCD_ShowString(10, 90, 200, 16, 16, "Please Check!!!");
+        LCD_ShowString(10,90,200,16,16,"Please Check!!!"); 
         delay_ms(100);
     }
     printf("HC05 OK!\r\n");
     //=======================
-    FRONT_COLOR = BLUE;
+    FRONT_COLOR=BLUE;
     HC05_Role_Show();
     delay_ms(100);
-    USART3_RX_STA = 0;
-
-    while (1)
-    {
+    USART3_RX_STA=0;
+    
+    while(1) {
         key = KEY_Scan(0);
-        if (key == KEY_UP_PRESS)
-        { // ï¿½Ð»ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-            key = HC05_Get_Role();
-            if (key != 0XFF)
-            {
-                key = !key; // ×´Ì¬È¡ï¿½ï¿½
-                if (key == 0)
-                    HC05_Set_Cmd("AT+ROLE=0");
-                else
-                    HC05_Set_Cmd("AT+ROLE=1");
-                HC05_Role_Show();
-                HC05_Set_Cmd("AT+RESET"); // ï¿½ï¿½Î»HC05Ä£ï¿½ï¿½
-                delay_ms(200);
-            }
+        if(key == KEY_UP_PRESS) { 
+            // ½øÈë×Ô¶¯Ä£Ê½£º¸ù¾ÝÎÂ¶ÈÊµÊ±µ÷Õû·çËÙ
+            auto_fan_mode = 1;
+            LCD_ShowString(10, 320, tftlcd_data.width, tftlcd_data.height, 16, "Auto Mode: ON ");
         }
-        else if (key == KEY1_PRESS)
-        {                         // ï¿½ï¿½ï¿½ï¿½/Í£Ö¹ï¿½ï¿½ï¿½ï¿½
-            sendmask = !sendmask; // ï¿½ï¿½ï¿½ï¿½/Í£Ö¹ï¿½ï¿½ï¿½ï¿½
-            if (sendmask == 0)
-                LCD_Fill(10 + 40, 160, 240, 160 + 16, WHITE); // ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+        else if(key == KEY1_PRESS) { 
+            // ÍË³ö×Ô¶¯Ä£Ê½£¬¹Ø±Õ·çÉÈ
+            auto_fan_mode = 0;
+            pwm_value = 0;
+            TIM_SetCompare2(TIM3, 500 - pwm_value);
+            LCD_ShowString(10, 320, tftlcd_data.width, tftlcd_data.height, 16, "Auto Mode: OFF");
+            
+            // ¸üÐÂ·çÉÈPWMÏÔÊ¾
+            sprintf(fan_buf, "%d", pwm_value);
+            LCD_ShowString(55, 290, tftlcd_data.width, tftlcd_data.height, 16, "000");
+            
+            // Ô­ÓÐµÄ·¢ËÍ/Í£Ö¹·¢ËÍ¹¦ÄÜ
+            sendmask = !sendmask;
+            if(sendmask == 0) LCD_Fill(10+40,160,240,160+16,WHITE); //Çå³ýÏÔÊ¾
         }
-        else if (key == KEY0_PRESS)
-        { // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½KEY0ï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
-            if (tempDisplayState == TEMP_DISPLAY_OFF)
-            {
-                // ï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½ï¿½ï¿½Ê¾
-                if (DHT11_Read_Data(&temp, &humi) == 0)
-                {
-                    tempToDisplay = temp;
-                    tempDisplayColor = color_list[color_index];
-                    color_index = (color_index + 1) % 5;
-                    tempDisplayState = TEMP_DISPLAY_TENS;
-                    tempDisplayStartTime = t; // ï¿½ï¿½Â¼ï¿½ï¿½Ç°Ê±ï¿½ï¿½
-
-                    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ê®Î»ï¿½ï¿½
-                    RGB_LED_Clear();
-                    RGB_ShowCharNum(tempToDisplay / 10, tempDisplayColor);
-                }
-            }
-            else
-            {
-                // Í£Ö¹ï¿½ï¿½Ê¾
-                RGB_LED_Clear();
-                tempDisplayState = TEMP_DISPLAY_OFF;
-            }
+        
+        // ÔÚ×Ô¶¯Ä£Ê½ÏÂÊµÊ±¸üÐÂ·çÉÈËÙ¶È
+        if(auto_fan_mode) {
+            pwm_value = new_pwm;
+            TIM_SetCompare2(TIM3, 500 - pwm_value);
+            sprintf(fan_buf, "%d", pwm_value);
+            LCD_ShowString(55, 290, tftlcd_data.width, tftlcd_data.height, 16, fan_buf);
         }
-
-        if (TP_Scan(0))
-        {
-            // ï¿½ï¿½RSTï¿½ï¿½Å¥ï¿½ï¿½ï¿½
-            if (tp_dev.x[0] > (tftlcd_data.width - 30) && tp_dev.y[0] < 16)
-            {
+        
+        if(TP_Scan(0)) {
+            // ¼ò»¯RST°´Å¥¼ì²â
+            if (tp_dev.x[0] > (tftlcd_data.width - 30) && tp_dev.y[0] < 16) {
                 LCD_Clear(WHITE);
                 draw_buttons();
                 LCD_ShowString(tftlcd_data.width - 30, 0, 30, 16, 16, "RST");
+                // ÖØÖÃ×Ô¶¯Ä£Ê½ÏÔÊ¾
+                if(auto_fan_mode) {
+                    LCD_ShowString(10, 320, tftlcd_data.width, tftlcd_data.height, 16, "Auto Mode: ON ");
+                } else {
+                    LCD_ShowString(10, 320, tftlcd_data.width, tftlcd_data.height, 16, "Auto Mode: OFF");
+                }
             }
-            else
-            {
-                // ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Å¥ï¿½ï¿½ï¿½
-                for (j = 0; j < 3; j++)
-                {
-                    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í°ï¿½Å¥ï¿½ï¿½ï¿½ï¿½
-                    printf("Touch: X=%d, Y=%d | Button %d: X1=%d, X2=%d, Y1=%d, Y2=%d\n",
+            else {
+                // ¼ì²éÉè±¸°´Å¥µã»÷
+                for(j = 0; j < 3; j++) {
+                    // µ÷ÊÔÐÅÏ¢£ºÏÔÊ¾´¥Ãþ×ø±êºÍ°´Å¥ÇøÓò
+                    printf("Touch: X=%d, Y=%d | Button %d: X1=%d, X2=%d, Y1=%d, Y2=%d\n", 
                            tp_dev.x[0], tp_dev.y[0],
                            j,
-                           buttons[j].x_start,
+                           buttons[j].x_start, 
                            buttons[j].x_start + buttons[j].width,
                            buttons[j].y_start,
                            buttons[j].y_start + buttons[j].height);
-
-                    if (tp_dev.x[0] > buttons[j].x_start &&
-                        tp_dev.x[0] < (buttons[j].x_start + buttons[j].width) &&
-                        tp_dev.y[0] > buttons[j].y_start &&
-                        tp_dev.y[0] < (buttons[j].y_start + buttons[j].height))
+                    
+                    if(tp_dev.x[0] > buttons[j].x_start &&
+                       tp_dev.x[0] < (buttons[j].x_start + buttons[j].width) &&
+                       tp_dev.y[0] > buttons[j].y_start &&
+                       tp_dev.y[0] < (buttons[j].y_start + buttons[j].height)) 
                     {
                         printf("Button %d pressed\n", j);
                         toggle_device(j);
@@ -428,133 +403,110 @@ int main()
                 }
             }
         }
-
-        if (t == 50)
-        { // ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-            if (sendmask)
-            { // ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-                sprintf((char *)sendbuf, "PREHICN HC05 %d\r\n", sendcnt);
-                LCD_ShowString(10 + 40, 160, 200, 16, 16, sendbuf); // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-                printf("%s\r\n", sendbuf);
-                u3_printf("PREHICN HC05 %d\r\n", sendcnt); // ï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½
+        
+        if(t == 50) { // ¶¨Ê±·¢ËÍÀ¶ÑÀÊý¾Ý
+            if(sendmask) { // ¶¨Ê±·¢ËÍ
+                sprintf((char*)sendbuf,"PREHICN HC05 %d\r\n",sendcnt);
+                printf("%s\r\n",sendbuf);
+                u3_printf("PREHICN HC05 %d\r\n",sendcnt); //·¢ËÍµ½À¶ÑÀÄ£¿é
                 sendcnt++;
-                if (sendcnt > 99)
-                    sendcnt = 0;
+                if(sendcnt > 99) sendcnt = 0;
             }
-            HC05_Sta_Show();
+            HC05_Sta_Show();  	  
             t = 0;
         }
-
-        if (USART3_RX_STA & 0X8000)
-        {                                    // ï¿½ï¿½ï¿½Õµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-            LCD_Fill(10, 170, 0, 0, BLUE);   // ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ò£¨±ï¿½ï¿½â¸²ï¿½ï¿½ï¿½ï¿½Êªï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½
-            reclen = USART3_RX_STA & 0X7FFF; // ï¿½Ãµï¿½ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
-            USART3_RX_BUF[reclen] = '\0';    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-            printf("reclen=%d\r\n", reclen);
-            printf("USART3_RX_BUF=%s\r\n", USART3_RX_BUF);
-
-            if (reclen == 10 || reclen == 11)
-            { // ï¿½ï¿½ï¿½ï¿½D2ï¿½ï¿½ï¿½
-                if (strcmp((const char *)USART3_RX_BUF, "+LED2 ON\r\n") == 0)
-                    LED2 = 0; // ï¿½ï¿½LED2
-                if (strcmp((const char *)USART3_RX_BUF, "+LED2 OFF\r\n") == 0)
-                    LED2 = 1; // ï¿½Ø±ï¿½LED2
-                if (strcmp((const char *)USART3_RX_BUF, "+LED1 ON\r\n") == 0)
-                    LED1 = 0; // ï¿½ï¿½LED1
-                if (strcmp((const char *)USART3_RX_BUF, "+LED1 OFF\r\n") == 0)
-                    LED1 = 1; // ï¿½Ø±ï¿½LED1
-                if (strcmp((const char *)USART3_RX_BUF, "+BEEP ON\r\n") == 0)
-                    BEEP = 1; // ï¿½ï¿½BEEP
-                if (strcmp((const char *)USART3_RX_BUF, "+BEEP OFF\r\n") == 0)
-                    BEEP = 0; // ï¿½Ø±ï¿½beep
-            }
-
-            LCD_ShowString(10, 270, 209, 50, 16, USART3_RX_BUF); // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½Î»ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½
-            USART3_RX_STA = 0;
-        }
-
+        
+        if(USART3_RX_STA & 0X8000) { // ½ÓÊÕµ½Ò»´ÎÊý¾ÝÁË
+            LCD_Fill(10,170,0,0,BLUE); // Çå³ýÏÔÊ¾ÇøÓò£¨±ÜÃâ¸²¸ÇÎÂÊª¶ÈÐÅÏ¢£©
+            reclen = USART3_RX_STA & 0X7FFF; // µÃµ½Êý¾Ý³¤¶È
+            USART3_RX_BUF[reclen] = '\0'; // ¼ÓÈë½áÊø·û
+            printf("reclen=%d\r\n",reclen);
+            printf("USART3_RX_BUF=%s\r\n",USART3_RX_BUF);
+            
+            if(reclen == 10 || reclen == 11) { // ¿ØÖÆD2¼ì²â
+                if(strcmp((const char*)USART3_RX_BUF,"+LED2 ON\r\n") == 0) LED2 = 0; // ´ò¿ªLED2
+                if(strcmp((const char*)USART3_RX_BUF,"+LED2 OFF\r\n") == 0) LED2 = 1; // ¹Ø±ÕLED2
+                if(strcmp((const char*)USART3_RX_BUF,"+LED1 ON\r\n") == 0) LED1 = 0; // ´ò¿ªLED1
+                if(strcmp((const char*)USART3_RX_BUF,"+LED1 OFF\r\n") == 0) LED1 = 1; // ¹Ø±ÕLED1
+                if(strcmp((const char*)USART3_RX_BUF,"+BEEP ON\r\n") == 0) BEEP = 1; // ´ò¿ªBEEP
+                if(strcmp((const char*)USART3_RX_BUF,"+BEEP OFF\r\n") == 0) BEEP = 0; // ¹Ø±Õbeep
+								if(strcmp((const char*)USART3_RX_BUF,"+FANF ON\r\n") == 0) 
+								{pwm_value += 50;
+									TIM_SetCompare2(TIM3, pwm_value);}
+									// ´ò¿ªBEEP
+                if(strcmp((const char*)USART3_RX_BUF,"+FANF OFF\r\n") == 0)
+								{pwm_value -= 50;
+									TIM_SetCompare2(TIM3, pwm_value);
+								// ¹Ø±Õbeep
+							}
+            
+            LCD_ShowString(10,350,209,50,16,USART3_RX_BUF); // ÏÔÊ¾½ÓÊÕµ½µÄÊý¾Ý£¨Î»ÖÃµ÷Õû£©
+            USART3_RX_STA = 0;	 
+        }}
+        
         i++;
-        if (i % 20 == 0)
-        {
-            data_pros(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½DHT11ï¿½ï¿½ï¿½ï¿½
-            // ===== ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ =====
-            // ï¿½ï¿½ï¿½Õ¿ï¿½ï¿½ï¿½LED
-            if (g_lsens < 10)
+				
+        if(i % 20 == 0) {
+					    LED1=1;
+		LED2=1;
+            data_pros(); // ¶ÁÈ¡Ò»´ÎDHT11Êý¾Ý
+					if(DHT11_Read_Data(&temp, &humi) == 0 && i%100==0)
             {
-                LED1 = 0; // ï¿½Íµï¿½Æ½ï¿½ï¿½ï¿½ï¿½
+                // µÆÕó ÏÔÊ¾ÎÂ¶ÈÊý×Ö£¨Ã¿¸ö×Ö·û1Ãë£©
+                RGB_ShowTemperature(temp, color_list[color_index], color_n);
+                color_n++;
+                if(color_n>=3){
+                    color_n=0;
+                    color_index = (color_index + 1) % 5; // Ñ­»·ÇÐ»»ÑÕÉ«
+                    }
+            }
+					
+            // ===== ×Ô¶¯¿ØÖÆÂß¼­ =====
+            // ¹âÕÕ¿ØÖÆLED
+            if(g_lsens < 10) {
+                LED1 = 0;  // µÍµçÆ½µãÁÁ
                 LED2 = 0;
-            }
-            else if (g_lsens < 50)
-            {
+            } 
+            else if(g_lsens < 50) {
                 LED1 = 0;
-                LED2 = 1; // ï¿½ßµï¿½Æ½Ï¨ï¿½ï¿½
-            }
-            else
-            {
-                // ï¿½Ö¸ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+                LED2 = 1;  // ¸ßµçÆ½Ï¨Ãð
+            } 
+            else {
+                // »Ö¸´ÊÖ¶¯¿ØÖÆ×´Ì¬
                 LED1 = buttons[0].state ? 0 : 1;
                 LED2 = buttons[1].state ? 0 : 1;
             }
-
-            // Êªï¿½È¿ï¿½ï¿½Æ·ï¿½ï¿½ï¿½ï¿½ï¿½
-            if (g_humi > 70)
-            {
-                GPIO_SetBits(BEEP_PORT, BEEP_PIN); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-            }
-            else
-            {
-                // ï¿½Ö¸ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
-                if (buttons[2].state)
-                {
+            
+            // Êª¶È¿ØÖÆ·äÃùÆ÷
+            if(g_humi > 65) {
+                GPIO_SetBits(BEEP_PORT, BEEP_PIN);  // ¿ªÆô·äÃùÆ÷
+							delay_ms(1000);
+            } 
+            else {
+                // »Ö¸´ÊÖ¶¯¿ØÖÆ×´Ì¬
+                if(buttons[2].state) {
                     GPIO_SetBits(BEEP_PORT, BEEP_PIN);
-                }
-                else
-                {
+                } else {
                     GPIO_ResetBits(BEEP_PORT, BEEP_PIN);
                 }
             }
+						
+            // ===== ÎÂ¶È×Ô¶¯¿ØÖÆ·çÉÈ =====
+            // ¸ù¾ÝÎÂ¶È¼ÆËã·çÉÈPWMÖµ (23¡ãC=100, 24¡ãC=125, 25¡ãC=150...)
+            new_pwm = 100 + (g_temp - 23) * 25;
+            
+            // ÏÞÖÆPWMÖµÔÚ0-500Ö®¼ä
+            if (new_pwm < 0) new_pwm = 0;
+            if (new_pwm > 500) new_pwm = 500;
+            
+            // ¸üÐÂ·çÉÈPWMÏÔÊ¾£¨½öÔÚ×Ô¶¯Ä£Ê½Ê±¸üÐÂÊµ¼ÊPWMÖµ£©
+            sprintf(fan_buf, "%d", pwm_value);
+            LCD_ShowString(55, 290, tftlcd_data.width, tftlcd_data.height, 16, fan_buf);
+            // ===== ÐÂÔö½áÊø =====
+						
         }
-
-        // ===== ï¿½Â¶ï¿½ï¿½ï¿½Ê¾Ñ­ï¿½ï¿½ï¿½ß¼ï¿½ =====
-        if (tempDisplayState != TEMP_DISPLAY_OFF)
-        {
-            // Ã¿ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾1ï¿½ï¿½ (tÃ¿10msï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½100=1000ms)
-            if (t - tempDisplayStartTime >= 100)
-            {
-                switch (tempDisplayState)
-                {
-                case TEMP_DISPLAY_TENS:
-                    // ï¿½ï¿½Ê¾ï¿½ï¿½Î»ï¿½ï¿½
-                    RGB_LED_Clear();
-                    RGB_ShowCharNum(tempToDisplay % 10, tempDisplayColor);
-                    tempDisplayState = TEMP_DISPLAY_UNITS;
-                    tempDisplayStartTime = t; // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½
-                    break;
-
-                case TEMP_DISPLAY_UNITS:
-                    // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½
-                    RGB_LED_Clear();
-                    RGB_ShowCharNum(16, tempDisplayColor); // 16ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½
-                    tempDisplayState = TEMP_DISPLAY_SYMBOL;
-                    tempDisplayStartTime = t;
-                    break;
-
-                case TEMP_DISPLAY_SYMBOL:
-                    // ï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½È¡ï¿½Â¶ï¿½Öµï¿½ï¿½Ö±ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Ê¾
-                    // ï¿½ï¿½Ê¾Ê®Î»ï¿½ï¿½
-                    RGB_LED_Clear();
-                    RGB_ShowCharNum(tempToDisplay / 10, tempDisplayColor);
-                    tempDisplayState = TEMP_DISPLAY_TENS;
-                    tempDisplayStartTime = t;
-                    break;
-
-                default:
-                    break;
-                }
-            }
-        }
-        // ===== ï¿½Â¶ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ =====
-
+  
+        
         t++;
         delay_ms(10);
     }
