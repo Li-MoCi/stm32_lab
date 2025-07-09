@@ -41,3 +41,4 @@
 .\obj\main.o: .\APP\lsens\lsens.h
 .\obj\main.o: .\APP\hc05\hc05.h
 .\obj\main.o: .\APP\usart3\usart3.h
+.\obj\main.o: .\APP\ws2812\ws2812.h

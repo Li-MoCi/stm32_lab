@@ -37,6 +37,7 @@
 ".\obj\hc05.o"
 ".\obj\usart3.o"
 ".\obj\time.o"
+".\obj\ws2812.o"
 ".\obj\system.o"
 ".\obj\systick.o"
 ".\obj\usart.o"

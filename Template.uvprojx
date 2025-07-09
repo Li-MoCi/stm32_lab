@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER,STM32F10X_HD</Define>
               <Undefine></Undefine>
-              <IncludePath>.\User;.\Libraries\CMSIS;.\Libraries\STM32F10x_StdPeriph_Driver\inc;.\APP\led;.\Public;.\APP\key;.\APP\exti;.\APP\time;.\APP\pwm;.\APP\iwdg;.\APP\wwdg;.\APP\input;.\APP\wkup;.\APP\adc;.\APP\adc_temp;.\APP\dac;.\APP\dma;.\APP\rtc;.\APP\24Cxx;.\APP\iic;.\APP\tftlcd;.\APP\flash;.\APP\spi;.\APP\stm32_flash;.\APP\touch;.\APP\lsens;.\APP\pwm_dac;.\APP\beep;.\APP\dht11;.\APP\hc05;.\APP\usart3;.\APP\time</IncludePath>
+              <IncludePath>.\User;.\Libraries\CMSIS;.\Libraries\STM32F10x_StdPeriph_Driver\inc;.\APP\led;.\Public;.\APP\key;.\APP\exti;.\APP\time;.\APP\pwm;.\APP\iwdg;.\APP\wwdg;.\APP\input;.\APP\wkup;.\APP\adc;.\APP\adc_temp;.\APP\dac;.\APP\dma;.\APP\rtc;.\APP\24Cxx;.\APP\iic;.\APP\tftlcd;.\APP\flash;.\APP\spi;.\APP\stm32_flash;.\APP\touch;.\APP\lsens;.\APP\pwm_dac;.\APP\beep;.\APP\dht11;.\APP\hc05;.\APP\usart3;.\APP\time;.\APP\ws2812</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -592,6 +592,11 @@
               <FileName>time.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\APP\time\time.c</FilePath>
+            </File>
+            <File>
+              <FileName>ws2812.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\APP\ws2812\ws2812.c</FilePath>
             </File>
           </Files>
         </Group>
