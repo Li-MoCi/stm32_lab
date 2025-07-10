@@ -51,28 +51,30 @@ void init_buttons()
     u16 btn_width = 80;
     u16 btn_height = 50;
     u16 spacing = 40;
-    u16 start_x = (tftlcd_data.width - (3 * btn_width + 2 * spacing)) / 2;
+    // 修改：按2个按钮计算布局（按钮1和按钮2）
+    u16 start_x = (tftlcd_data.width - (2 * btn_width + spacing)) / 2;
     u16 start_y = 80;
     
-    // LED1按钮
-    buttons[0].x_start = start_x;
-    buttons[0].y_start = start_y;
-    buttons[0].width = btn_width;
-    buttons[0].height = btn_height;
-    buttons[0].device_num = 1;  // 控制LED1
+    // 按钮0 - 不显示，可省略初始化或保持默认
+    // 这里仅保留结构，实际不显示
+    buttons[0].x_start = 0;
+    buttons[0].y_start = 0;
+    buttons[0].width = 0;
+    buttons[0].height = 0;
+    buttons[0].device_num = 0;
     buttons[0].state = 0;
     
-    // LED2按钮
-    buttons[1].x_start = start_x + btn_width + spacing;
+    // LED2按钮（作为第一个显示的按钮）
+    buttons[1].x_start = start_x; // 从新计算的start_x开始
     buttons[1].y_start = start_y;
     buttons[1].width = btn_width;
     buttons[1].height = btn_height;
     buttons[1].device_num = 2;  // 控制LED2
     buttons[1].state = 0;
     
-    // 蜂鸣器按钮 - 修正坐标计算
-    buttons[2].x_start = start_x + 2 * (btn_width + spacing);
-    buttons[2].y_start = start_y;  // 保持在同一行
+    // 蜂鸣器按钮（作为第二个显示的按钮）
+    buttons[2].x_start = start_x + btn_width + spacing; // 向右偏移一个按钮+间距
+    buttons[2].y_start = start_y;
     buttons[2].width = btn_width;
     buttons[2].height = btn_height;
     buttons[2].device_num = 3;  // 控制蜂鸣器
@@ -85,7 +87,8 @@ void draw_buttons()
     u8 i;
     char text[10];
     
-    for(i = 0; i < 3; i++) {
+    // 修改：只绘制按钮1和按钮2（数组索引1和2）
+    for(i = 1; i <= 2; i++) {
         // 绘制按钮背景 - 使用红绿状态指示
         u16 bg_color = buttons[i].state ? GREEN : RED;
         LCD_Fill(buttons[i].x_start, 
@@ -102,11 +105,9 @@ void draw_buttons()
         
         // 绘制按钮文字
         FRONT_COLOR = BLACK;
-        if(buttons[i].device_num == 1) {
-            sprintf(text, "LED1");
-        } else if(buttons[i].device_num == 2) {
+        if(buttons[i].device_num == 2) {  // LED2按钮
             sprintf(text, "LED2");
-        } else if(buttons[i].device_num == 3) {
+        } else if(buttons[i].device_num == 3) {  // 蜂鸣器按钮
             sprintf(text, "BEEP");
         }
         LCD_ShowString(buttons[i].x_start + 20, 
@@ -247,6 +248,7 @@ int main() {
     int new_pwm = 0;  // 存储自动计算的风扇PWM值
     u8 auto_fan_mode = 0; // 0=手动模式, 1=自动模式
     u8 temp = 0, humi = 0;
+		
     u8 color_index = 0;
     u8 color_n = 0;
     u32 color_list[] = {RGB_COLOR_RED, RGB_COLOR_GREEN, RGB_COLOR_BLUE, RGB_COLOR_WHITE, RGB_COLOR_YELLOW};
@@ -406,17 +408,17 @@ LED2 = buttons[1].state ? 0 : 1;
             }
         }
         
-        if(t == 50) { // 定时发送蓝牙数据
-            if(sendmask) { // 定时发送
-                sprintf((char*)sendbuf,"PREHICN HC05 %d\r\n",sendcnt);
-                printf("%s\r\n",sendbuf);
-                u3_printf("PREHICN HC05 %d\r\n",sendcnt); //发送到蓝牙模块
-                sendcnt++;
-                if(sendcnt > 99) sendcnt = 0;
-            }
-            HC05_Sta_Show();  	  
-            t = 0;
-        }
+//        if(t == 50) { // 定时发送蓝牙数据
+//            if(sendmask) { // 定时发送
+//                sprintf((char*)sendbuf,"PREHICN HC05 %d\r\n",sendcnt);
+//                printf("%s\r\n",sendbuf);
+//                u3_printf("PREHICN HC05 %d\r\n",sendcnt); //发送到蓝牙模块
+//                sendcnt++;
+//                if(sendcnt > 99) sendcnt = 0;
+//            }
+//            HC05_Sta_Show();  	  
+//            t = 0;
+//        }
         
         if(USART3_RX_STA & 0X8000) { // 接收到一次数据了
             LCD_Fill(10,170,0,0,BLUE); // 清除显示区域（避免覆盖温湿度信息）
@@ -445,8 +447,25 @@ LED2 = buttons[1].state ? 0 : 1;
 									TIM_SetCompare2(TIM3, 500-pwm_value);
 								// 关闭beep
 							}
+								
+						if(strcmp((const char*)USART3_RX_BUF,"+LED2 ON\r\n") == 0)
+						{
+							LCD_ShowString(10,350,209,50,16,"open  LED"); // 显示接收到的数据（位置调整）
+							sprintf((char*)sendbuf,"open  LED \r\n");
+                printf("%s\r\n",sendbuf);
+                u3_printf("open  LED \r\n"); //发送到蓝牙模块
+                
+						}
+						if(strcmp((const char*)USART3_RX_BUF,"+BEEP ON\r\n") == 0)
+						{
+							LCD_ShowString(10,350,209,50,16,"open door"); // 显示接收到的数据（位置调整）
+									sprintf((char*)sendbuf,"open door \r\n");
+                printf("%s\r\n",sendbuf);
+                u3_printf("open door \r\n"); //发送到蓝牙模块
+                
+						}
             
-            LCD_ShowString(10,350,209,50,16,USART3_RX_BUF); // 显示接收到的数据（位置调整）
+            //LCD_ShowString(10,350,209,50,16,USART3_RX_BUF); // 显示接收到的数据（位置调整）
             USART3_RX_STA = 0;	 
         }}
         
@@ -489,8 +508,12 @@ LED2 = buttons[1].state ? 0 : 1;
             // 湿度控制蜂鸣器
             if(g_humi > 70) {
                 GPIO_SetBits(BEEP_PORT, BEEP_PIN);  // 开启蜂鸣器
+							  
+									
 							delay_ms(1000);
-            } 
+							GPIO_ResetBits(BEEP_PORT, BEEP_PIN);
+								
+						}
             else {
                 // 恢复手动控制状态
                 if(buttons[2].state) {
@@ -520,3 +543,4 @@ LED2 = buttons[1].state ? 0 : 1;
         delay_ms(10);
     }
 }
+
