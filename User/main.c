@@ -16,6 +16,7 @@ extern const u8 g_rgb_num_buf[][5];
 
 void RGB_ShowTemperature(u8 temp, u32 color, u8 color_n)
 {
+	
     u8 digits[3];
     int j;
     digits[0] = temp / 10;
@@ -293,8 +294,9 @@ int main() {
     LCD_ShowString(tftlcd_data.width - 30, 0, 30, 16, 16, "RST");
     
     // 初始化设备状态
-    LED1 = 1;
-    LED2 = 1;
+		buttons[0].state == 1;
+LED1 = buttons[0].state ? 0 : 1;  // 同步初始状态
+LED2 = buttons[1].state ? 0 : 1;
     GPIO_ResetBits(BEEP_PORT, BEEP_PIN); // 初始关闭蜂鸣器
     
     // 调试信息：显示屏幕尺寸
@@ -351,7 +353,7 @@ int main() {
             // 更新风扇PWM显示
             sprintf(fan_buf, "%d", pwm_value);
             LCD_ShowString(55, 290, tftlcd_data.width, tftlcd_data.height, 16, "000");
-            
+						
             // 原有的发送/停止发送功能
             sendmask = !sendmask;
             if(sendmask == 0) LCD_Fill(10+40,160,240,160+16,WHITE); //清除显示
@@ -431,12 +433,16 @@ int main() {
                 if(strcmp((const char*)USART3_RX_BUF,"+BEEP ON\r\n") == 0) BEEP = 1; // 打开BEEP
                 if(strcmp((const char*)USART3_RX_BUF,"+BEEP OFF\r\n") == 0) BEEP = 0; // 关闭beep
 								if(strcmp((const char*)USART3_RX_BUF,"+FANF ON\r\n") == 0) 
-								{pwm_value += 50;
-									TIM_SetCompare2(TIM3, pwm_value);}
+								{
+									if(pwm_value>=500)pwm_value=500;
+									else pwm_value += 50;
+									TIM_SetCompare2(TIM3, 500-pwm_value);}
 									// 打开BEEP
                 if(strcmp((const char*)USART3_RX_BUF,"+FANF OFF\r\n") == 0)
-								{pwm_value -= 50;
-									TIM_SetCompare2(TIM3, pwm_value);
+								{
+									if(pwm_value<=0)pwm_value=0;
+									else pwm_value -= 50;
+									TIM_SetCompare2(TIM3, 500-pwm_value);
 								// 关闭beep
 							}
             
@@ -447,8 +453,6 @@ int main() {
         i++;
 				
         if(i % 20 == 0) {
-					    LED1=1;
-		LED2=1;
             data_pros(); // 读取一次DHT11数据
 					if(DHT11_Read_Data(&temp, &humi) == 0 && i%100==0)
             {
@@ -459,17 +463,22 @@ int main() {
                     color_n=0;
                     color_index = (color_index + 1) % 5; // 循环切换颜色
                     }
+								
+//										if(buttons[0].state == 0) LED1 = 0;
+//										else LED1=1;
+//										if(buttons[1].state == 0) LED2 = 0;
+//										else LED2=1;
             }
 					
             // ===== 自动控制逻辑 =====
             // 光照控制LED
-            if(g_lsens < 10) {
-                LED1 = 0;  // 低电平点亮
-                LED2 = 0;
-            } 
-            else if(g_lsens < 50) {
-                LED1 = 0;
-                LED2 = 1;  // 高电平熄灭
+//            if(g_lsens < 10) {
+//                LED1 = 0;  // 低电平点亮
+//                LED2 = 0;
+//            } 
+            if(g_lsens < 50) {
+                //LED1 = 0;
+                LED2 = 0;  // 高电平熄灭
             } 
             else {
                 // 恢复手动控制状态
@@ -478,7 +487,7 @@ int main() {
             }
             
             // 湿度控制蜂鸣器
-            if(g_humi > 65) {
+            if(g_humi > 70) {
                 GPIO_SetBits(BEEP_PORT, BEEP_PIN);  // 开启蜂鸣器
 							delay_ms(1000);
             } 
